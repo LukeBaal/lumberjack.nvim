@@ -34,10 +34,10 @@ M.options = {
 		-- WARN = "@comment.warning",
 		-- INFO = "@comment.note",
 		-- DEBUG = "@markup",
-		FATAL = "DiagnosticError",
-		ERROR = "DiagnosticError",
-		WARN = "DiagnosticWarn",
-		INFO = "DiagnosticInfo",
+		-- FATAL = "DiagnosticError",
+		-- ERROR = "DiagnosticError",
+		-- WARN = "DiagnosticWarn",
+		-- INFO = "DiagnosticInfo",
 		-- DEBUG = "DiagnosticHint",
 	},
 	background = {
@@ -58,8 +58,8 @@ M.options = {
 M.highlight_keywords = function(buf, keyword, start, end_)
 	start = start - 1
 	local namespace = M.options.namespaces[keyword]
-	local foreground = M.options.foreground[keyword]
 	local background = M.options.background[keyword]
+	local foreground = M.options.foreground[keyword]
 
 	if not namespace or not foreground or not background then
 		print("Lumberjack: Invalid keyword: " .. keyword)
@@ -110,7 +110,10 @@ end
 M.setup = function(opts)
 	M.options = vim.tbl_deep_extend("keep", opts, M.options)
 
-	for keyword, _ in pairs(M.options.foreground) do
+	for keyword, _ in pairs(M.options.background) do
+		if not M.options.foreground[keyword] then
+			M.options.foreground[keyword] = M.options.background[keyword]
+		end
 		M.options.namespaces[keyword] = vim.api.nvim_create_namespace("Lumberjack" .. keyword)
 	end
 
