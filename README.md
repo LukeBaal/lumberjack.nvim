@@ -7,7 +7,7 @@ A Neovim plugin for highlighting logs in log text files by their log level
 Lazy
 ```lua
   {
-    dir = 'lukebaal/lumberjack.nvim',
+    'lukebaal/lumberjack.nvim',
     config = function()
       require('lumberjack').setup {
         -- Set highlight colours for log level text
