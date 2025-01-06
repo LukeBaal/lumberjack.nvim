@@ -21,6 +21,49 @@ M.clear_highlights = function(buf, namespace)
 	vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
 end
 
+local goto_line = function(window, buffer, line_number)
+	if not line_number then
+		return
+	end
+	-- Ensure the line number is valid and within the buffer range
+	local buf_lines = vim.api.nvim_buf_line_count(buffer)
+	if line_number < 1 or line_number > buf_lines then
+		print("Invalid line number: " .. line_number)
+		return
+	end
+
+	-- Move the cursor to the specified line, column 0 (start of the line)
+	vim.api.nvim_win_set_cursor(window, { line_number, 0 })
+end
+
+local function open_vertical_split_with_lines(lines)
+	-- Open a new vertical split
+	vim.cmd("vnew")
+
+	-- Get the buffer ID of the new window
+	local buf = vim.api.nvim_get_current_buf()
+	local win = vim.api.nvim_get_current_win()
+
+	-- Set the buffer content to the provided lines
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+	-- Define the function to run on cursor movement
+	local function on_cursor_moved()
+		local cursor_pos = vim.api.nvim_win_get_cursor(0)
+		local line_num = cursor_pos[1]
+		local index = M.state.matching_indexes[line_num]
+		goto_line(M.state.src_window, M.state.src_buffer, index)
+	end
+
+	-- Attach an autocommand to CursorMoved for the new buffer
+	vim.api.nvim_create_autocmd("CursorMoved", {
+		buffer = buf, -- Only apply to the new buffer
+		callback = on_cursor_moved,
+	})
+
+	return win
+end
+
 ---@class lumberjack.Options
 ---@field ready boolean: True iff, setup has been called at least once (i.e. namespaces were created)
 ---@field foreground table<string, string>: Maps log level to hl_group to use to highlight log level text
@@ -50,12 +93,21 @@ M.options = {
 	namespaces = {},
 }
 
+M.state = {
+	src_window = 0,
+	src_buffer = 0,
+	filtered_window = -1,
+	matching_lines = {},
+	matching_indexes = {},
+}
+
 ---Highlight given lines matching given keyword
 ---@param buf integer ID of buffer to highlight
 ---@param keyword string Name of keyword from M.options to highlight
 ---@param start integer First line in range to highlight (1 indexed)
 ---@param end_ integer Last line in range to highlight (Exclusive)
-M.highlight_keywords = function(buf, keyword, start, end_)
+---@param open_split boolean IF true, open split with filtered lines
+M.highlight_keywords = function(buf, keyword, start, end_, open_split)
 	start = start - 1
 	local namespace = M.options.namespaces[keyword]
 	local background = M.options.background[keyword]
@@ -66,12 +118,25 @@ M.highlight_keywords = function(buf, keyword, start, end_)
 		return
 	end
 
+	M.state.src_window = vim.api.nvim_get_current_win()
+	if buf == 0 then
+		M.state.src_buffer = vim.api.nvim_get_current_buf()
+	else
+		M.state.src_buffer = buf
+	end
+
 	local lines = vim.api.nvim_buf_get_lines(buf, start, end_, false)
 	M.clear_highlights(buf, namespace)
 
+	M.state.matching_lines = {}
+	M.state.matching_indexes = {}
+
 	for i, line in ipairs(lines) do
 		local start_idx, end_idx = string.find(line, keyword)
+
 		if start_idx then
+			table.insert(M.state.matching_lines, line)
+			table.insert(M.state.matching_indexes, i)
 			-- Before log level
 			add_highlight({
 				buf = buf,
@@ -104,6 +169,10 @@ M.highlight_keywords = function(buf, keyword, start, end_)
 				})
 			end
 		end
+	end
+
+	if open_split then
+		M.state.filtered_window = open_vertical_split_with_lines(M.state.matching_lines)
 	end
 end
 
