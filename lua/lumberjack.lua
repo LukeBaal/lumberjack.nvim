@@ -36,9 +36,56 @@ local goto_line = function(window, buffer, line_number)
 	vim.api.nvim_win_set_cursor(window, { line_number, 0 })
 end
 
+local function open_bottom_split()
+	-- Get total height of the editor
+	local total_height = vim.o.lines
+
+	-- Calculate window height (20% of total)
+	local win_height = math.floor(total_height * 0.25)
+
+	-- Set window options
+	local opts = {
+		relative = "editor",
+		width = vim.o.columns, -- Full width
+		height = win_height,
+		row = total_height - win_height, -- Position at bottom
+		col = 0,
+		style = "minimal",
+		border = "single",
+	}
+
+	-- Create a new buffer
+	local buf = vim.api.nvim_create_buf(false, true) -- No file, scratch buffer
+
+	-- Open the window
+	local win = vim.api.nvim_open_win(buf, true, opts)
+
+	-- Optional: Customize the buffer (disable line numbers, enable wrap, etc.)
+	vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+	vim.api.nvim_win_set_option(win, "number", false)
+	vim.api.nvim_win_set_option(win, "winfixheight", false)
+end
+
 local function open_vertical_split_with_lines(lines)
 	-- Open a new vertical split
-	vim.cmd("vnew")
+	if M.options.orientation == "horizontal" then
+		-- vim.api.nvim_open_win(0, true, { relative = "editor", width = 100, height = 100 })
+		-- local new_buf = vim.api.nvim_create_buf(false, true)
+		-- vim.api.nvim_open_win(new_buf, true, {
+		--           relative =
+		--       })
+		vim.cmd("10split new")
+		vim.cmd(":setlocal buftype=nowrite")
+		vim.cmd(":setlocal bufhidden=delete")
+		vim.cmd(":setlocal noswapfile")
+	elseif M.options.orientation == "floating" then
+		open_bottom_split()
+	else
+		vim.cmd("vnew")
+		vim.cmd(":setlocal buftype=nowrite")
+		vim.cmd(":setlocal bufhidden=delete")
+		vim.cmd(":setlocal noswapfile")
+	end
 
 	-- Get the buffer ID of the new window
 	local buf = vim.api.nvim_get_current_buf()
@@ -52,8 +99,17 @@ local function open_vertical_split_with_lines(lines)
 		local cursor_pos = vim.api.nvim_win_get_cursor(0)
 		local line_num = cursor_pos[1]
 		local index = M.state.matching_indexes[line_num]
-		goto_line(M.state.src_window, M.state.src_buffer, index)
+		if vim.api.nvim_win_is_valid(M.state.src_window) then
+			goto_line(M.state.src_window, M.state.src_buffer, index)
+		end
 	end
+
+	vim.api.nvim_create_autocmd("QuitPre", {
+		buffer = M.state.src_buffer,
+		callback = function()
+			vim.api.nvim_win_close(M.state.filtered_window, true)
+		end,
+	})
 
 	-- Attach an autocommand to CursorMoved for the new buffer
 	vim.api.nvim_create_autocmd("CursorMoved", {
