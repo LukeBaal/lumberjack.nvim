@@ -122,11 +122,13 @@ end
 
 ---@class lumberjack.Options
 ---@field ready boolean: True iff, setup has been called at least once (i.e. namespaces were created)
+---@field orientation string: Placement/Type of window for filtered messages
 ---@field foreground table<string, string>: Maps log level to hl_group to use to highlight log level text
 ---@field background table<string, string>: Maps log level to hl_group to use to highlight text in log that isn't the log level
 ---@field namespaces table<string, integer>: Maps log level to ID of namespace to use for highlighting
 M.options = {
 	ready = false,
+	orientation = "horizontal",
 	foreground = {
 		-- FATAL = "@comment.error",
 		-- ERROR = "@comment.error",
